@@ -1,6 +1,7 @@
 (() => {
   const root = document.documentElement;
   const body = document.body;
+  const utilityBar = document.querySelector(".utility-bar");
   const header = document.querySelector("[data-header]");
   const navShell = document.querySelector("[data-nav-shell]");
   const toggle = document.querySelector("[data-menu-toggle]");
@@ -17,6 +18,7 @@
   const testimonialTrack = document.querySelector("[data-testimonial-track]");
   const prevButton = document.querySelector("[data-carousel-prev]");
   const nextButton = document.querySelector("[data-carousel-next]");
+  const faqItems = [...document.querySelectorAll(".faq-item")];
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const formScriptUrl = form?.dataset.scriptUrl?.trim() || "";
 
@@ -57,8 +59,10 @@
   const isMenuOpen = () => toggle?.getAttribute("aria-expanded") === "true";
 
   const syncHeaderOffset = () => {
+    const utilityBarHeight = utilityBar?.offsetHeight || 0;
     const measuredHeight = navShell?.offsetHeight || header?.offsetHeight || 0;
-    headerOffset = Math.max(120, Math.ceil(measuredHeight + 24));
+    root.style.setProperty("--utility-bar-height", `${utilityBarHeight}px`);
+    headerOffset = Math.max(120, Math.ceil(utilityBarHeight + measuredHeight + 24));
     root.style.setProperty("--header-offset", `${headerOffset}px`);
     return headerOffset;
   };
@@ -247,6 +251,25 @@
     });
   };
 
+  const setFaqItemState = (item, isOpen) => {
+    const button = item.querySelector(".faq-toggle");
+    const panel = item.querySelector(".faq-panel");
+    if (!button || !panel) return;
+
+    item.classList.toggle("is-open", isOpen);
+    button.setAttribute("aria-expanded", String(isOpen));
+    panel.setAttribute("aria-hidden", String(!isOpen));
+    panel.style.maxHeight = isOpen ? `${panel.scrollHeight}px` : "0px";
+  };
+
+  const syncFaqPanelHeights = () => {
+    faqItems.forEach((item) => {
+      const panel = item.querySelector(".faq-panel");
+      if (!panel) return;
+      panel.style.maxHeight = item.classList.contains("is-open") ? `${panel.scrollHeight}px` : "0px";
+    });
+  };
+
   if (toggle && mobileMenu) {
     setMenuOpen(false);
 
@@ -301,6 +324,7 @@
   window.addEventListener("scroll", requestScrollUpdate, { passive: true });
   window.addEventListener("resize", debounce(() => {
     syncHeaderOffset();
+    syncFaqPanelHeights();
 
     if (window.innerWidth >= 980 && isMenuOpen()) {
       setMenuOpen(false);
@@ -318,6 +342,28 @@
     window.addEventListener("load", () => {
       stabiliseHashNavigation(window.location.hash);
     }, { once: true });
+  }
+
+  if (faqItems.length) {
+    faqItems.forEach((item) => {
+      const button = item.querySelector(".faq-toggle");
+      if (!button) return;
+
+      setFaqItemState(item, false);
+
+      button.addEventListener("click", () => {
+        const shouldOpen = !item.classList.contains("is-open");
+
+        faqItems.forEach((otherItem) => {
+          if (otherItem === item) return;
+          setFaqItemState(otherItem, false);
+        });
+
+        setFaqItemState(item, shouldOpen);
+      });
+    });
+
+    window.addEventListener("load", syncFaqPanelHeights, { once: true });
   }
 
   const revealItems = document.querySelectorAll(".reveal");
@@ -421,7 +467,7 @@
       fullName: normaliseInput(fields.find((field) => field.name === "fullName")?.value || ""),
       email: normaliseInput(fields.find((field) => field.name === "email")?.value || "").toLowerCase(),
       phone: normaliseInput(fields.find((field) => field.name === "phone")?.value || ""),
-      course: normaliseInput(fields.find((field) => field.name === "course")?.value || ""),
+      nationality: normaliseInput(fields.find((field) => field.name === "nationality")?.value || ""),
       campus: normaliseInput(fields.find((field) => field.name === "campus")?.value || ""),
       website: honeypotField ? normaliseInput(honeypotField.value) : "",
       siteOrigin: siteOriginField?.value || window.location.origin,
@@ -434,7 +480,7 @@
   if (form) {
     const fields = [
       ...form.querySelectorAll(
-        'input[name="fullName"], input[name="email"], input[name="phone"], select[name="course"], select[name="campus"]'
+        'input[name="fullName"], input[name="email"], input[name="phone"], select[name="nationality"], select[name="campus"]'
       )
     ];
 

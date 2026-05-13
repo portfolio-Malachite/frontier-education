@@ -2,7 +2,7 @@ const CONFIG = {
   OWNER_EMAIL: 'adityakumarasd852@gmail.com',
   SPREADSHEET_ID: '1EcuyygiGzoUfFBR2FzbF8ci7brAUPcW132RRgwt6B5Y',
   SHEET_NAME: 'Enquiries',
-  TIMEZONE: 'Australia/Brisbane',
+  TIMEZONE: 'Asia/Kolkata',
   DAILY_SUMMARY_HOUR: 18,
   ALLOWED_SITE_ORIGINS: [
     'https://portfolio-malachite.github.io',
@@ -23,7 +23,7 @@ const SHEET_HEADERS = [
   'Full Name',
   'Email Address',
   'Phone Number',
-  'Preferred Course',
+  'Nationality',
   'Preferred Campus'
 ];
 
@@ -178,6 +178,7 @@ function ensureDailySummaryTrigger_() {
 
 function getOrCreateSheet_() {
   const spreadsheet = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  spreadsheet.setSpreadsheetTimeZone(CONFIG.TIMEZONE);
   let sheet = spreadsheet.getSheetByName(CONFIG.SHEET_NAME);
 
   if (!sheet) {
@@ -196,6 +197,8 @@ function getOrCreateSheet_() {
     sheet.autoResizeColumns(1, SHEET_HEADERS.length);
   }
 
+  sheet.getRange('A:A').setNumberFormat('dd mmm yyyy, hh:mm am/pm');
+
   return sheet;
 }
 
@@ -205,7 +208,7 @@ function appendEnquiryRow_(sheet, submittedAt, payload) {
     payload.fullName,
     payload.email,
     payload.phone,
-    payload.course,
+    payload.nationality,
     payload.campus
   ]);
 }
@@ -252,7 +255,7 @@ function normalisePayload_(e) {
     fullName: sanitiseText_(source.fullName, 120),
     email: sanitiseText_(source.email, 160).toLowerCase(),
     phone: sanitiseText_(source.phone, 40),
-    course: sanitiseText_(source.course, 160),
+    nationality: sanitiseText_(source.nationality, 160),
     campus: sanitiseText_(source.campus, 80),
     siteOrigin,
     pageUrl,
@@ -270,7 +273,7 @@ function validatePayload_(payload) {
     return { ok: false, message: 'This form origin is not allowed.' };
   }
 
-  if (!payload.fullName || !payload.email || !payload.phone || !payload.course || !payload.campus) {
+  if (!payload.fullName || !payload.email || !payload.phone || !payload.nationality || !payload.campus) {
     return { ok: false, message: 'Please complete all required fields.' };
   }
 
@@ -292,7 +295,7 @@ function checkDuplicateSubmission_(payload) {
     payload.fullName,
     payload.email,
     payload.phone,
-    payload.course,
+    payload.nationality,
     payload.campus
   ].join('|'));
 
