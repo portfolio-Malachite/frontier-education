@@ -8,27 +8,15 @@
   const mobileMenu = document.querySelector("[data-mobile-menu]");
   const primaryNavLinks = [...document.querySelectorAll('.desktop-nav a[href^="#"], .mobile-panel a[href^="#"]')];
   const mobileMenuItems = mobileMenu ? [...mobileMenu.querySelectorAll("a, button")] : [];
-  const form = document.querySelector("#enquiry-form");
-  const status = document.querySelector("#form-status");
-  const formSubmitButton = form?.querySelector(".btn-form") || null;
-  const honeypotField = form?.querySelector('[name="website"]') || null;
-  const siteOriginField = form?.querySelector('[name="siteOrigin"]') || null;
-  const pageUrlField = form?.querySelector('[name="pageUrl"]') || null;
-  const formSubjectField = form?.querySelector('[name="_subject"]') || null;
   const stickyCta = document.querySelector(".mobile-sticky-cta");
   const testimonialTrack = document.querySelector("[data-testimonial-track]");
   const prevButton = document.querySelector("[data-carousel-prev]");
   const nextButton = document.querySelector("[data-carousel-next]");
   const faqItems = [...document.querySelectorAll(".faq-item")];
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const formSpreeEndpoint = form?.dataset.formspreeEndpoint?.trim() || form?.getAttribute("action")?.trim() || "";
-  const formScriptUrl = form?.dataset.scriptUrl?.trim() || "";
 
   let headerOffset = 120;
   let scrollFrame = 0;
-  let isSubmitting = false;
-  let lastSubmissionFingerprint = "";
-  let lastSubmissionAt = 0;
 
   const debounce = (callback, delay = 120) => {
     let timeoutId = 0;
@@ -386,212 +374,68 @@
     revealItems.forEach((item) => item.classList.add("is-visible"));
   }
 
-  const normaliseInput = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
-
-  const setFormStatus = (message = "", type = "success") => {
-    if (!status) return;
-
-    status.textContent = message;
-    status.classList.toggle("is-loading", type === "loading");
-    status.classList.toggle("is-error", type === "error");
-  };
-
-  const setSubmittingState = (submitting) => {
-    isSubmitting = submitting;
-
-    if (form) {
-      form.setAttribute("aria-busy", String(submitting));
-    }
-
-    if (!formSubmitButton) return;
-
-    formSubmitButton.disabled = submitting;
-    formSubmitButton.textContent = submitting
-      ? "Submitting..."
-      : formSubmitButton.dataset.defaultLabel || "Submit Enquiry";
-  };
-
-  const syncFormMetadata = () => {
-    if (siteOriginField) {
-      siteOriginField.value = window.location.origin;
-    }
-
-    if (pageUrlField) {
-      pageUrlField.value = window.location.href;
-    }
-  };
-
-  const setFieldError = (field, message) => {
-    const wrapper = field.closest(".field");
-    const error = document.querySelector(`[data-error-for="${field.id}"]`);
-
-    field.setAttribute("aria-invalid", message ? "true" : "false");
-    if (wrapper) wrapper.classList.toggle("is-invalid", Boolean(message));
-    if (error) error.textContent = message;
-  };
-
-  const validateField = (field) => {
-    const value = normaliseInput(field.value);
-
-    if (field.tagName !== "SELECT") {
-      field.value = value;
-    }
-
-    if (field.hasAttribute("required") && !value) {
-      setFieldError(field, "Please complete this field.");
-      return false;
-    }
-
-    if (field.type === "email" && value) {
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-      if (!isEmail) {
-        setFieldError(field, "Please enter a valid email address.");
-        return false;
-      }
-    }
-
-    if (field.type === "tel" && value) {
-      const digits = value.replace(/\D/g, "");
-      if (digits.length < 7) {
-        setFieldError(field, "Please enter a valid phone number.");
-        return false;
-      }
-    }
-
-    setFieldError(field, "");
-    return true;
-  };
-
-  const buildEnquiryPayload = (fields) => {
-    syncFormMetadata();
-
-    const preferredCourse = normaliseInput(fields.find((field) => field.name === "preferredCourse")?.value || "");
-
-    return {
-      fullName: normaliseInput(fields.find((field) => field.name === "fullName")?.value || ""),
-      email: normaliseInput(fields.find((field) => field.name === "email")?.value || "").toLowerCase(),
-      phone: normaliseInput(fields.find((field) => field.name === "phone")?.value || ""),
-      nationality: normaliseInput(fields.find((field) => field.name === "nationality")?.value || ""),
-      preferredCourse,
-      campus: preferredCourse,
-      website: honeypotField ? normaliseInput(honeypotField.value) : "",
-      siteOrigin: siteOriginField?.value || window.location.origin,
-      pageUrl: pageUrlField?.value || window.location.href
-    };
-  };
-
-  const isPlaceholderEndpoint = (value) => /REPLACE_WITH_REAL_FORM_ID|REAL_FORM_ID|PASTE|YOUR_|XXXXXXXX/i.test(value);
-  const isValidFormEndpoint = (value) => (
-    Boolean(value)
-    && !isPlaceholderEndpoint(value)
-    && /^https:\/\/formspree\.io\/f\/[-_a-zA-Z0-9]+(?:\?.*)?$/.test(value)
-  );
-  const isValidAppsScriptEndpoint = (value) => /^https:\/\/script\.google\.com\/macros\/s\/[-_a-zA-Z0-9]+\/exec(?:\?.*)?$/.test(value);
+  const form = document.getElementById("consultation-form");
+  const formStatus = document.getElementById("form-status");
 
   if (form) {
-    const fields = [
-      ...form.querySelectorAll(
-        'input[name="fullName"], input[name="email"], input[name="phone"], select[name="nationality"], select[name="preferredCourse"]'
-      )
-    ];
-
-    syncFormMetadata();
-    setSubmittingState(false);
-
-    fields.forEach((field) => {
-      field.addEventListener("blur", () => validateField(field));
-      field.addEventListener("input", () => {
-        if (field.getAttribute("aria-invalid") === "true") validateField(field);
-      });
-      field.addEventListener("change", () => validateField(field));
-    });
-
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      if (isSubmitting) return;
+      const submitButton = form.querySelector("button[type='submit']");
+      const defaultLabel = submitButton?.dataset.defaultLabel || "Submit";
 
-      const isValid = fields.map(validateField).every(Boolean);
+      form.querySelectorAll("input[type='text'], input[type='email'], input[type='tel']").forEach((field) => {
+        field.value = field.value.trim();
+      });
 
-      if (!isValid) {
-        const firstInvalid = form.querySelector('[aria-invalid="true"]');
-        if (firstInvalid) firstInvalid.focus();
-        setFormStatus("", "error");
+      if (!form.checkValidity()) {
+        form.reportValidity();
         return;
       }
 
-      const useFormspree = isValidFormEndpoint(formSpreeEndpoint);
-      const useAppsScriptFallback = !useFormspree && isValidAppsScriptEndpoint(formScriptUrl);
-
-      if (!useFormspree && !useAppsScriptFallback) {
-        setFormStatus("Something went wrong. Please try again.", "error");
-        return;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Submitting...";
       }
 
-      if (honeypotField && normaliseInput(honeypotField.value)) {
-        form.reset();
-        fields.forEach((field) => setFieldError(field, ""));
-        setFormStatus("Thank you! Our team will contact you shortly.", "success");
-        return;
+      if (formStatus) {
+        formStatus.textContent = "Submitting your enquiry...";
+        formStatus.classList.remove("is-error");
+        formStatus.classList.add("is-loading");
       }
-
-      const payload = buildEnquiryPayload(fields);
-      const submissionFingerprint = JSON.stringify(payload);
-      const now = Date.now();
-
-      if (submissionFingerprint === lastSubmissionFingerprint && now - lastSubmissionAt < 120000) {
-        setFormStatus("Thank you! Our team will contact you shortly.", "success");
-        return;
-      }
-
-      setSubmittingState(true);
-      setFormStatus("Sending your enquiry...", "loading");
 
       try {
-        const endpoint = useFormspree ? formSpreeEndpoint : formScriptUrl;
-        const response = await fetch(
-          endpoint,
-          useFormspree
-            ? {
-                method: "POST",
-                headers: {
-                  "Accept": "application/json",
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  ...payload,
-                  _subject: normaliseInput(formSubjectField?.value || "New Frontier Education Consultation Enquiry")
-                })
-              }
-            : {
-                method: "POST",
-                body: new URLSearchParams(payload),
-                redirect: "follow"
-              }
-        );
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: {
+            Accept: "application/json"
+          }
+        });
 
-        let result = null;
-        try {
-          result = await response.json();
-        } catch (parseError) {
-          result = null;
+        if (!response.ok) {
+          throw new Error(`Form submission failed with status ${response.status}`);
         }
 
-        if (!response.ok || !result || result.ok !== true) {
-          throw new Error("Submission failed");
+        if (formStatus) {
+          formStatus.textContent = "Thank you! Our team will contact you shortly.";
+          formStatus.classList.remove("is-error", "is-loading");
         }
-
-        lastSubmissionFingerprint = submissionFingerprint;
-        lastSubmissionAt = now;
 
         form.reset();
-        fields.forEach((field) => setFieldError(field, ""));
-
-        setFormStatus("Thank you! Our team will contact you shortly.", "success");
       } catch (error) {
-        setFormStatus("Something went wrong. Please try again.", "error");
+        console.error(error);
+
+        if (formStatus) {
+          formStatus.textContent = "Something went wrong. Please try again.";
+          formStatus.classList.remove("is-loading");
+          formStatus.classList.add("is-error");
+        }
       } finally {
-        setSubmittingState(false);
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = defaultLabel;
+        }
       }
     });
   }
